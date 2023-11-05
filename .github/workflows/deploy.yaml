@@ -40,25 +40,25 @@ jobs:
 
       - name: Build    # building the images with 2 tags, one is latest and the other is SHA (new tag)
         run: |
-          docker build -t gurnoorsb/multi-client:latest -t gurnoorsb/multi-client:${SHA} -f ./client/Dockerfile ./client
-          docker build -t gurnoorsb/multi-server:latest -t gurnoorsb/multi-server:${SHA} -f ./server/Dockerfile ./server
-          docker build -t gurnoorsb/multi-worker:latest -t gurnoorsb/multi-worker:${SHA} -f ./worker/Dockerfile ./worker
+          docker build -t gurnoorsb/multi-client:latest -t gurnoorsb/multi-client:${{ env.SHA }} -f ./client/Dockerfile ./client
+          docker build -t gurnoorsb/multi-server:latest -t gurnoorsb/multi-server:${{ env.SHA }} -f ./server/Dockerfile ./server
+          docker build -t gurnoorsb/multi-worker:latest -t gurnoorsb/multi-worker:${{ env.SHA }} -f ./worker/Dockerfile ./worker
 
       - name: Push # push the image with all the tags
         run: |
           docker push gurnoorsb/multi-client:latest
           docker push gurnoorsb/multi-server:latest
           docker push gurnoorsb/multi-worker:latest
-          docker push gurnoorsb/multi-client:${SHA}
-          docker push gurnoorsb/multi-server:${SHA}
-          docker push gurnoorsb/multi-worker:${SHA}
+          docker push gurnoorsb/multi-client:${{ env.SHA }}
+          docker push gurnoorsb/multi-server:${{ env.SHA }}
+          docker push gurnoorsb/multi-worker:${{ env.SHA }}
 
       - name: Apply
         run: | # versioning so that the latest image gets accessed, when using env.SHA it means using the image that was pushed to Docker Hub with this tag
           kubectl apply -f k8s  
-          kubectl set image deployments/server-deployment server=gurnoorsb/multi-server:${SHA}    
-          kubectl set image deployments/client-deployment client=gurnoorsb/multi-client:${SHA}
-          kubectl set image deployments/worker-deployment worker=gurnoorsb/multi-worker:${SHA}
+          kubectl set image deployments/server-deployment server=gurnoorsb/multi-server:${{ env.SHA }}    
+          kubectl set image deployments/client-deployment client=gurnoorsb/multi-client:${{ env.SHA }}
+          kubectl set image deployments/worker-deployment worker=gurnoorsb/multi-worker:${{ env.SHA }}
 
 # The following steps have been commented out, but you can uncomment and configure them as needed.
 
