@@ -38,7 +38,7 @@ jobs:
           cluster_name: multi-clusters
           location: us-central1-c
 
-      - name: Build    # building the images with 2 tags, one is latest and the other is SHA (new tag)
+      - name: Build    # building the images with 2 tags, one is latest and the other is SHA (new tag) s
         run: |
           docker build -t gurnoorsb/multi-client:latest -t gurnoorsb/multi-client:${{ env.SHA }} -f ./client/Dockerfile ./client
           docker build -t gurnoorsb/multi-server:latest -t gurnoorsb/multi-server:${{ env.SHA }} -f ./server/Dockerfile ./server
