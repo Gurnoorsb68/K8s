@@ -41,7 +41,7 @@ jobs:
       - name: Build    # building the images with 2 tags, one is latest and the other is SHA (new tag)
         run: |
           docker build -t gurnoorsb/multi-client:latest -t gurnoorsb/multi-client:${SHA} -f ./client/Dockerfile ./client
-          docker build -t gurnoorsb/multi-server:latest -t gurnoorsb68/multi-server:${SHA} -f ./server/Dockerfile ./server
+          docker build -t gurnoorsb/multi-server:latest -t gurnoorsb/multi-server:${SHA} -f ./server/Dockerfile ./server
           docker build -t gurnoorsb/multi-worker:latest -t gurnoorsb/multi-worker:${SHA} -f ./worker/Dockerfile ./worker
 
       - name: Push # push the image with all the tags
