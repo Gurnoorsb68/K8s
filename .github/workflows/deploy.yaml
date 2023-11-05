@@ -1,40 +1,88 @@
 
-name: CI MultipleImages
+name: Deploy K8s
 on:
   push:
     branches:
       - main
+
+env:
+  SHA: $(git rev-parse HEAD)    # variable use to give the value to the latest image
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: docker login -u ${{secrets.DOCKER_USERNAME}} -p
+      -name: Test
+        run: docker login -u ${{secrets.DOCKER_USERNAME}} -p
           ${{secrets.DOCKER_PASSWORD}}
-      - run: docker build -t gurnoorsb/docker-multi-container -f ./client/Dockerfile.dev  
+        run: docker build -t gurnoorsb/docker-multi-container -f ./client/Dockerfile.dev  
           ./client    # build for test on dev
       - run: docker run -e CI=true gurnoorsb/docker-multi-container npm test
-      - run: docker build -t gurnoorsb/multi-client ./client  #build for production using Dockerfile in client
-      - run: docker build -t gurnoorsb/multi-server ./server
-      - run: docker build -t gurnoorsb/multi-nginx ./nginx
-      - run: docker build -t gurnoorsb/multi-worker ./worker
-      
-      - run: docker push gurnoorsb/multi-client
-      - run: docker push gurnoorsb/multi-server
-      - run: docker push gurnoorsb/multi-nginx
-      - run: docker push gurnoorsb/multi-worker
-      
-      - name: Generate deployment package
-        run: zip -r deploy.zip . -x '*.git*'
-      
-      - name: Deploy to EB
-        uses: einaregilsson/beanstalk-deploy@v18
+    
+      - name: Set Service Key
+        uses: 'google-github-actions/auth@v0' #authentication for google account with json key generated from service account #SET CONNECTION with my google cloud
         with:
-          aws_access_key: ${{ secrets.AWS_ACCESS_KEY }}
-          aws_secret_key: ${{ secrets.AWS_SECRET_KEY }}
-          application_name: docker1
-          environment_name: Docker1-env
-          region: us-east-1
-          existing_bucket_name: elasticbeanstalk-us-east-1-828961408305
-          version_label: ${{ github.sha }}
-          deployment_package: deploy.zip
+          credentials_json: '${{ secrets.GKE_SA_KEY }}'
+    
+      - name: Set Project
+        uses: google-github-actions/setup-gcloud@v0 #indicating gcloud which project to use  #THIS ALSO NEED TO BE RUN ON GOOGLECLOUD SHELL
+        with:
+          project_id: 	k8s-multi-404119
+    
+       - name: Auth
+        run: gcloud --quiet auth configure-docker   #  allowing docker to access my google cloud using the credentials gkey which i saved in secrets in Gitactions 
+    
+       - name: Get Credentials
+        uses: google-github-actions/get-gke-credentials@v0  # indicating which CLUSTER and location it have to use #THIS ALSO NEED TO BE RUN ON GOOGLECLOUD SHELL
+        with:
+          cluster_name: multi-clusters
+          location: us-central1-c
+       
+       - name: Build    # building the images with 2 tags, one is latest and other is sha(new tag)
+        run: |-
+          docker build -t gurnoorsb/multi-client:latest -t gurnoorsb/multi-client:${{ env.SHA }} -f ./client/Dockerfile ./client
+          docker build -t gurnoorsb/multi-server:latest -t gurnoorsb68/multi-server:${{ env.SHA }} -f ./server/Dockerfile ./server
+          docker build -t gurnoorsb/multi-worker:latest -t gurnoorsb/multi-worker:${{ env.SHA }} -f ./worker/Dockerfile ./worker 
+
+       - name: Push # push the image with all the tags
+        run: |-
+          docker push gurnoorsb/multi-client:latest
+          docker push gurnoorsb/multi-server:latest
+          docker push gurnoorsb/multi-worker:latest
+ 
+          docker push gurnoorsb/multi-client:${{ env.SHA }}
+          docker push gurnoorsb/multi-server:${{ env.SHA }}
+          docker push gurnoorsb/multi-worker:${{ env.SHA }}
+      
+       - name: Apply
+        run: |-     # versioning so that latest image gets accessed, when using env.SHA means using the image that was pushed to docker hub with this tag
+          kubectl apply -f k8s  
+          kubectl set image deployments/server-deployment server=gurnoorsb/multi-server:${{ env.SHA }}    
+          kubectl set image deployments/client-deployment client=gurnoorsb/multi-client:${{ env.SHA }}
+          kubectl set image deployments/worker-deployment worker=gurnoorsb/multi-worker:${{ env.SHA }}
+
+#     - run: docker build -t gurnoorsb/multi-client ./client  #build for production using Dockerfile in client
+#      - run: docker build -t gurnoorsb/multi-server ./server
+#      - run: docker build -t gurnoorsb/multi-nginx ./nginx
+#      - run: docker build -t gurnoorsb/multi-worker ./worker
+#      
+#      - run: docker push gurnoorsb/multi-client
+#      - run: docker push gurnoorsb/multi-server
+#      - run: docker push gurnoorsb/multi-nginx
+#      - run: docker push gurnoorsb/multi-worker
+#      
+#      - name: Generate deployment package
+#        run: zip -r deploy.zip . -x '*.git*'
+#      
+#      - name: Deploy to EB
+#        uses: einaregilsson/beanstalk-deploy@v18
+#        with:
+#          aws_access_key: ${{ secrets.AWS_ACCESS_KEY }}
+#          aws_secret_key: ${{ secrets.AWS_SECRET_KEY }}
+#          application_name: docker1
+#          environment_name: Docker1-env
+#          region: us-east-1
+#          existing_bucket_name: elasticbeanstalk-us-east-1-828961408305
+#          version_label: ${{ github.sha }}
+#          deployment_package: deploy.zip
